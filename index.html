@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Stitch's Birthday Adventure!</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@400;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    overflow: hidden;
+    height: 100dvh;
+    width: 100vw;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    background: #0a0a1a;
+  }
+
+  #game {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+
+  /* ========== BACKGROUNDS ========== */
+  .scene {
+    display: none;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0; left: 0;
+  }
+
+  .scene.active { display: block; }
+
+  .scene-photo {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-size: cover;
+    background-position: center;
+  }
+
+  .scene-photo::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.25);
+  }
+
+  /* ========== POPOVER CARD ========== */
+  #popover {
+    display: none;
+    position: absolute;
+    z-index: 50;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(100% - 40px);
+    max-width: 500px;
+    background: rgba(15, 15, 35, 0.88);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    padding: 18px 20px 16px;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  #popover.visible {
+    display: flex;
+  }
+
+  /* Chapter dots */
+  .popover-dots {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .pdot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    border: 1.5px solid rgba(255,255,255,0.3);
+    transition: all 0.4s;
+  }
+
+  .pdot.done {
+    background: #5eff5e;
+    border-color: #5eff5e;
+  }
+
+  .pdot.current {
+    background: #5ef;
+    border-color: #fff;
+    transform: scale(1.4);
+    box-shadow: 0 0 8px rgba(80,230,255,0.5);
+  }
+
+  /* Narrative */
+  .popover-title {
+    font-family: 'Lilita One', cursive;
+    font-size: clamp(1.2rem, 4.5vw, 1.7rem);
+    color: #fff;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  .popover-story {
+    font-size: clamp(0.85rem, 2.8vw, 1rem);
+    color: rgba(255,255,255,0.7);
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  /* Drag section with speech bubble */
+  .popover-drag-section {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  /* Speech bubble above stitch */
+  .popover-speech {
+    background: #fff;
+    color: #333;
+    font-size: clamp(0.78rem, 2.5vw, 0.92rem);
+    font-weight: 700;
+    line-height: 1.4;
+    padding: 8px 14px;
+    border-radius: 14px;
+    text-align: center;
+    max-width: 250px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    position: relative;
+    margin-bottom: 8px;
+    align-self: flex-start;
+    margin-left: 20px;
+  }
+
+  .popover-speech::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 24px;
+    width: 0; height: 0;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-top: 9px solid #fff;
+  }
+
+  /* Drag row */
+  .popover-drag {
+    width: 100%;
+    height: 72px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 16px;
+    border: 2px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    position: relative;
+  }
+
+  .drag-path {
+    position: absolute;
+    top: 50%;
+    left: 70px;
+    right: 70px;
+    height: 3px;
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,0.18) 0px, rgba(255,255,255,0.18) 5px, transparent 5px, transparent 12px);
+    transform: translateY(-50%);
+  }
+
+  .drag-arrow {
+    position: absolute;
+    right: 65px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(255,255,255,0.25);
+    font-size: 0.9rem;
+    animation: arrowBounce 1s ease-in-out infinite;
+  }
+
+  @keyframes arrowBounce {
+    0%, 100% { transform: translateY(-50%) translateX(0); }
+    50% { transform: translateY(-50%) translateX(5px); }
+  }
+
+  /* Stitch in drag row */
+  #stitch {
+    width: 54px;
+    height: 54px;
+    cursor: grab;
+    z-index: 10;
+    position: relative;
+    filter: drop-shadow(2px 3px 4px rgba(0,0,0,0.4));
+    flex-shrink: 0;
+  }
+
+  #stitch:active { cursor: grabbing; }
+
+  #stitch.dragging {
+    position: fixed;
+    z-index: 200;
+    transform: scale(1.15);
+    transition: none;
+  }
+
+  #stitch.celebrate {
+    animation: wiggle 0.3s ease-in-out 3;
+  }
+
+  #stitch.poof {
+    animation: poof 0.35s ease-out forwards;
+    pointer-events: none;
+  }
+
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(0deg) scale(1.15); }
+    25% { transform: rotate(-14deg) scale(1.15); }
+    75% { transform: rotate(14deg) scale(1.15); }
+  }
+
+  @keyframes poof {
+    0% { transform: scale(1.15); opacity: 1; }
+    50% { transform: scale(1.8); opacity: 0.5; }
+    100% { transform: scale(0); opacity: 0; }
+  }
+
+  /* Drop target */
+  .drop-target {
+    width: 54px;
+    height: 54px;
+    border-radius: 14px;
+    border: 3px dashed rgba(255,255,255,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    z-index: 10;
+    position: relative;
+    flex-shrink: 0;
+    animation: targetGlow 2s ease-in-out infinite;
+    transition: all 0.2s;
+  }
+
+  @keyframes targetGlow {
+    0%, 100% { border-color: rgba(255,255,255,0.2); box-shadow: none; }
+    50% { border-color: rgba(255,255,255,0.45); box-shadow: 0 0 10px rgba(80,230,255,0.15); }
+  }
+
+  .drop-target.highlight {
+    border-color: #5eff5e;
+    background: rgba(94,255,94,0.15);
+    transform: scale(1.1);
+    box-shadow: 0 0 18px rgba(94,255,94,0.35);
+  }
+
+  /* Drag hint */
+  .popover-hint {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.35);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-align: center;
+    margin-top: -4px;
+  }
+
+  /* ========== TITLE SCREEN ========== */
+  .title-screen {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at 50% 40%, #1a1a5e 0%, #0a0a2a 70%);
+  }
+
+  .title-stitch { animation: float 3s ease-in-out infinite; }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+
+  .title-screen .main-title {
+    font-family: 'Lilita One', cursive;
+    font-size: clamp(2.2rem, 8vw, 4rem);
+    color: #5ef;
+    text-shadow: 3px 3px 0px rgba(0,0,0,0.4), 0 0 30px rgba(50,200,255,0.3);
+    text-align: center;
+    padding: 0 20px;
+    line-height: 1.1;
+    margin-top: 10px;
+  }
+
+  .title-screen .subtitle {
+    font-size: clamp(1rem, 3.5vw, 1.4rem);
+    color: #ffcce0;
+    text-align: center;
+    padding: 0 20px;
+    margin: 8px 0 20px;
+  }
+
+  .title-screen .start-btn {
+    font-family: 'Lilita One', cursive;
+    font-size: clamp(1.3rem, 4vw, 1.8rem);
+    color: #16213e;
+    background: linear-gradient(135deg, #5ef, #48dbfb);
+    border: none;
+    border-radius: 50px;
+    padding: 16px 48px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(50,200,255,0.4);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .title-screen .start-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 25px rgba(50,200,255,0.6);
+  }
+
+  .title-stars {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .title-star {
+    position: absolute;
+    background: #fff;
+    border-radius: 50%;
+    animation: twinkle ease-in-out infinite;
+  }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.15; }
+    50% { opacity: 0.8; }
+  }
+
+  /* ========== TRANSITION ========== */
+  #transition {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(8,8,25,0.95);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s;
+    gap: 15px;
+  }
+
+  #transition.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  #transition-text {
+    color: #fff;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.1rem, 3.5vw, 1.5rem);
+    text-align: center;
+    padding: 0 30px;
+    line-height: 1.5;
+  }
+
+  #transition-emoji {
+    font-size: 3rem;
+    animation: float 1.5s ease-in-out infinite;
+  }
+
+  /* ========== FINALE ========== */
+  .finale .scene-photo {
+    background-image: url('https://images.pexels.com/photos/261411/pexels-photo-261411.jpeg?auto=compress&cs=tinysrgb&w=1200');
+  }
+
+  .finale .scene-photo::after {
+    background: rgba(0,0,0,0.35);
+  }
+
+  .finale-content {
+    position: relative;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 30px 20px;
+    width: 100%; height: 100%;
+    text-align: center;
+  }
+
+  .finale .birthday-msg {
+    font-family: 'Lilita One', cursive;
+    font-size: clamp(2.2rem, 8vw, 4rem);
+    color: #fff;
+    text-shadow: 3px 3px 0px rgba(0,0,0,0.4), 0 0 20px rgba(255,150,200,0.3);
+  }
+
+  .finale .birthday-sub {
+    font-size: clamp(0.95rem, 3vw, 1.25rem);
+    color: #fff;
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.5);
+    line-height: 1.7;
+    max-width: 420px;
+  }
+
+  .finale .birthday-sub .ohana {
+    font-style: italic;
+    font-weight: 800;
+    color: #ffe0a0;
+  }
+
+  .finale-stitch { animation: float 2s ease-in-out infinite; }
+
+  .finale-icons {
+    font-size: clamp(2.5rem, 8vw, 4rem);
+    display: flex;
+    gap: 12px;
+  }
+
+  .confetti {
+    position: absolute;
+    border-radius: 2px;
+    z-index: 1;
+    animation: confettiFall linear forwards;
+  }
+
+  @keyframes confettiFall {
+    0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+
+  .stitch-svg { width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div id="game">
+
+  <!-- Title Screen -->
+  <div class="scene active title-screen" id="scene-title">
+    <div class="title-stars" id="title-stars"></div>
+    <div class="title-stitch" id="title-stitch-art"></div>
+    <div class="main-title">Stitch's Big Adventure</div>
+    <div class="subtitle">A Birthday Journey for Mom</div>
+    <button class="start-btn" id="start-btn" onclick="startGame()" disabled style="opacity:0.5">Loading...</button>
+  </div>
+
+  <!-- Scene backgrounds (photo only) -->
+  <div class="scene" id="scene-1"><div class="scene-photo" style="background-image:url('house.png')"></div></div>
+  <div class="scene" id="scene-2"><div class="scene-photo" style="background-image:url('logan_express.png')"></div></div>
+  <div class="scene" id="scene-3"><div class="scene-photo" style="background-image:url('https://images.pexels.com/photos/2767767/pexels-photo-2767767.jpeg?auto=compress&cs=tinysrgb&w=1200')"></div></div>
+  <div class="scene" id="scene-4"><div class="scene-photo" style="background-image:url('https://images.pexels.com/photos/3254753/pexels-photo-3254753.jpeg?auto=compress&cs=tinysrgb&w=1200')"></div></div>
+  <div class="scene" id="scene-5"><div class="scene-photo" style="background-image:url('https://images.pexels.com/photos/2786109/pexels-photo-2786109.jpeg?auto=compress&cs=tinysrgb&w=1200')"></div></div>
+  <div class="scene" id="scene-6"><div class="scene-photo" style="background-image:url('disney_highway.png')"></div></div>
+  <div class="scene" id="scene-7"><div class="scene-photo" style="background-image:url('https://images.pexels.com/photos/261411/pexels-photo-261411.jpeg?auto=compress&cs=tinysrgb&w=1200')"></div></div>
+
+  <!-- Finale -->
+  <div class="scene finale" id="scene-finale">
+    <div class="scene-photo"></div>
+    <div class="finale-content">
+      <div class="finale-stitch" id="finale-stitch-art"></div>
+      <div class="birthday-msg">Happy Birthday, Mom!</div>
+      <div class="birthday-sub">
+        Stitch made it all the way from Grafton to Orlando &mdash; thanks to you!
+        <br><br>
+        <span class="ohana">"Ohana means family, and family means nobody gets left behind or forgotten."</span>
+        <br><br>
+        Love, Jack!
+        <br><br>
+        P.S. Check your email! 
+      </div>
+      <div class="finale-icons">
+        <span>&#10084;&#65039;</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unified popover card -->
+  <div id="popover">
+    <div class="popover-dots" id="popover-dots"></div>
+    <div class="popover-title" id="popover-title"></div>
+    <div class="popover-story" id="popover-story"></div>
+    <div class="popover-drag-section">
+      <div class="popover-speech" id="popover-speech"></div>
+      <div class="popover-drag" id="drag-area">
+        <div id="stitch">
+          <svg class="stitch-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="50" cy="58" rx="28" ry="25" fill="#4169E1"/>
+            <ellipse cx="50" cy="35" rx="24" ry="20" fill="#4A7AFF"/>
+            <ellipse cx="25" cy="15" rx="10" ry="18" fill="#4A7AFF" transform="rotate(-15, 25, 15)"/>
+            <ellipse cx="25" cy="15" rx="6" ry="12" fill="#89B4FF" transform="rotate(-15, 25, 15)"/>
+            <ellipse cx="75" cy="15" rx="10" ry="18" fill="#4A7AFF" transform="rotate(15, 75, 15)"/>
+            <ellipse cx="75" cy="15" rx="6" ry="12" fill="#89B4FF" transform="rotate(15, 75, 15)"/>
+            <ellipse cx="40" cy="33" rx="8" ry="9" fill="#fff"/>
+            <ellipse cx="60" cy="33" rx="8" ry="9" fill="#fff"/>
+            <ellipse cx="42" cy="34" rx="4" ry="5" fill="#222"/>
+            <ellipse cx="58" cy="34" rx="4" ry="5" fill="#222"/>
+            <ellipse cx="43" cy="32" rx="1.5" ry="2" fill="#fff"/>
+            <ellipse cx="59" cy="32" rx="1.5" ry="2" fill="#fff"/>
+            <ellipse cx="50" cy="40" rx="4" ry="3" fill="#3355AA"/>
+            <path d="M 40 44 Q 50 52 60 44" stroke="#222" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <ellipse cx="50" cy="62" rx="16" ry="14" fill="#89B4FF"/>
+            <ellipse cx="22" cy="55" rx="7" ry="10" fill="#4A7AFF" transform="rotate(20, 22, 55)"/>
+            <ellipse cx="78" cy="55" rx="7" ry="10" fill="#4A7AFF" transform="rotate(-20, 78, 55)"/>
+            <ellipse cx="38" cy="80" rx="10" ry="6" fill="#4A7AFF"/>
+            <ellipse cx="62" cy="80" rx="10" ry="6" fill="#4A7AFF"/>
+          </svg>
+        </div>
+        <div class="drag-path"></div>
+        <div class="drag-arrow">&#9654;</div>
+        <div class="drop-target" id="drop-target"></div>
+      </div>
+    </div>
+    <div class="popover-hint" id="popover-hint"></div>
+  </div>
+
+  <!-- Transition overlay -->
+  <div id="transition">
+    <div id="transition-emoji"></div>
+    <div id="transition-text"></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   STORY DATA - Edit scenes, dialog, and transitions here!
+   ============================================================ */
+
+const SCENE_DATA = [
+  {
+    id: 'scene-1',
+    title: 'Aloha from... Grafton?!',
+    story: 'Stitch crash-landed in the yard at 8 Keith Hill Rd. Help him get to Disney!',
+    speech: 'Nice house... but Stitch would rather be at the Polynesian!',
+    targetEmoji: '&#128663;',
+    hint: 'Drag Stitch to the car!',
+    transitionEmoji: '&#128663;',
+    transition: "Stitch will drive! Vroom vroom!\nNext stop: Logan Express in Framingham!",
+  },
+  {
+    id: 'scene-2',
+    title: 'Buckle Up, 626!',
+    story: 'Stitch made it to Framingham! Only ran 3 red lights. Time to wait for the bus.',
+    speech: 'Is like spaceship... but on the ground. And slower. Much slower.',
+    targetEmoji: '&#128653;',
+    hint: 'Drag Stitch to the bus!',
+    transitionEmoji: '&#128653;',
+    transition: "All aboard! Stitch loves public transportation.",
+  },
+  {
+    id: 'scene-3',
+    title: 'Logan Airport!',
+    story: 'Stitch survived the bus — he only licked one stranger\'s sandwich. Now just to get through security...',
+    speech: 'TSA says no ray guns. Rude.',
+    targetEmoji: '&#9992;&#65039;',
+    hint: 'Drag Stitch to the plane!',
+    transitionEmoji: '&#9992;&#65039;',
+    transition: "Through TSA! Don't ask how.",
+  },
+  {
+    id: 'scene-4',
+    title: 'Flying... Legally This Time!',
+    story: 'Stitch found his terminal. 3 hours to Orlando. Easy peasy...right?',
+    speech: 'Middle seat?! This is WORSE than prison on asteroid.',
+    targetEmoji: '&#127965;',
+    hint: 'Drag Stitch to Orlando!',
+    transitionEmoji: '&#127965;',
+    transition: "Touchdown in Orlando!\nStitch clapped when the plane landed. No shame.",
+  },
+  {
+    id: 'scene-5',
+    title: 'Welcome to Orlando!',
+    story: 'It\'s so hot here!!!',
+    speech: 'Palm trees! Getting closer! Stitch can FEEL it!',
+    targetEmoji: '&#128661;',
+    hint: 'Drag Stitch to the Uber!',
+    transitionEmoji: '&#128661;',
+    transition: "Uber secured!\nHope the driver likes aliens!",
+  },
+  {
+    id: 'scene-6',
+    title: 'Uber Rating: 1 Star',
+    story: 'Stitch pressed all the buttons on the radio just to see what they do.',
+    speech: 'Driver asked "what ARE you?" Stitch said "a dog." Driver not convinced.',
+    targetEmoji: '&#127802;',
+    hint: 'Drag Stitch to the resort!',
+    transitionEmoji: '&#127802;',
+    transition: "The Polynesian Resort!\nStitch can taste the Dole Whip already...",
+  },
+  {
+    id: 'scene-7',
+    title: 'The Polynesian Resort!',
+    story: 'Stitch made it! Finally some time to relax...',
+    speech: 'Stitch is home! Get me some Dole Whip!',
+    targetEmoji: '&#127846;',
+    hint: 'Drag Stitch to the Dole Whip!',
+    transitionEmoji: null,
+    transition: null,
+  },
+];
+
+/* ============================================================
+   IMAGE URLS - Background photos for each scene
+   ============================================================ */
+
+const IMAGE_URLS = [
+  'house.png',
+  'logan_express.png',
+  'https://images.pexels.com/photos/2767767/pexels-photo-2767767.jpeg?auto=compress&cs=tinysrgb&w=1200',
+  'https://images.pexels.com/photos/3254753/pexels-photo-3254753.jpeg?auto=compress&cs=tinysrgb&w=1200',
+  'https://images.pexels.com/photos/2786109/pexels-photo-2786109.jpeg?auto=compress&cs=tinysrgb&w=1200',
+  'disney_highway.png',
+  'https://images.pexels.com/photos/261411/pexels-photo-261411.jpeg?auto=compress&cs=tinysrgb&w=1200',
+];
+
+let imagesReady = false;
+
+Promise.all(IMAGE_URLS.map(url => {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = resolve;
+    img.onerror = resolve;
+    img.src = url;
+  });
+})).then(() => {
+  imagesReady = true;
+  const btn = document.getElementById('start-btn');
+  btn.disabled = false;
+  btn.style.opacity = '';
+  btn.textContent = 'Tap to Start!';
+});
+
+const STITCH_SVG_TITLE = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width:140px;height:140px;">
+  <ellipse cx="50" cy="55" rx="28" ry="25" fill="#4169E1"/>
+  <ellipse cx="50" cy="35" rx="24" ry="20" fill="#4A7AFF"/>
+  <ellipse cx="25" cy="15" rx="10" ry="18" fill="#4A7AFF" transform="rotate(-15, 25, 15)"/>
+  <ellipse cx="25" cy="15" rx="6" ry="12" fill="#89B4FF" transform="rotate(-15, 25, 15)"/>
+  <ellipse cx="75" cy="15" rx="10" ry="18" fill="#4A7AFF" transform="rotate(15, 75, 15)"/>
+  <ellipse cx="75" cy="15" rx="6" ry="12" fill="#89B4FF" transform="rotate(15, 75, 15)"/>
+  <ellipse cx="40" cy="33" rx="8" ry="9" fill="#fff"/>
+  <ellipse cx="60" cy="33" rx="8" ry="9" fill="#fff"/>
+  <ellipse cx="42" cy="34" rx="4" ry="5" fill="#222"/>
+  <ellipse cx="58" cy="34" rx="4" ry="5" fill="#222"/>
+  <ellipse cx="43" cy="32" rx="1.5" ry="2" fill="#fff"/>
+  <ellipse cx="59" cy="32" rx="1.5" ry="2" fill="#fff"/>
+  <ellipse cx="50" cy="40" rx="4" ry="3" fill="#3355AA"/>
+  <path d="M 40 44 Q 50 52 60 44" stroke="#222" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <ellipse cx="50" cy="62" rx="16" ry="14" fill="#89B4FF"/>
+</svg>`;
+
+document.getElementById('title-stitch-art').innerHTML = STITCH_SVG_TITLE;
+document.getElementById('finale-stitch-art').innerHTML = STITCH_SVG_TITLE;
+
+// Title stars
+const starsContainer = document.getElementById('title-stars');
+for (let i = 0; i < 50; i++) {
+  const star = document.createElement('div');
+  star.className = 'title-star';
+  star.style.left = Math.random() * 100 + '%';
+  star.style.top = Math.random() * 100 + '%';
+  const size = 1 + Math.random() * 3;
+  star.style.width = size + 'px';
+  star.style.height = size + 'px';
+  star.style.animationDuration = (1.5 + Math.random() * 3) + 's';
+  star.style.animationDelay = (Math.random() * 3) + 's';
+  starsContainer.appendChild(star);
+}
+
+// Build dots
+const dotsContainer = document.getElementById('popover-dots');
+for (let i = 0; i < 7; i++) {
+  const d = document.createElement('div');
+  d.className = 'pdot';
+  d.id = 'pdot-' + i;
+  dotsContainer.appendChild(d);
+}
+
+const scenes = SCENE_DATA;
+
+let currentScene = -1;
+let isDragging = false;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+
+const stitch = document.getElementById('stitch');
+const popover = document.getElementById('popover');
+const dragArea = document.getElementById('drag-area');
+const dropTarget = document.getElementById('drop-target');
+const transitionEl = document.getElementById('transition');
+const transitionText = document.getElementById('transition-text');
+const transitionEmojiEl = document.getElementById('transition-emoji');
+
+function startGame() {
+  document.getElementById('scene-title').classList.remove('active');
+  currentScene = 0;
+  showScene(0);
+}
+
+function showScene(index) {
+  document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+
+  if (index >= scenes.length) {
+    document.getElementById('scene-finale').classList.add('active');
+    popover.classList.remove('visible');
+    launchConfetti();
+    return;
+  }
+
+  const scene = scenes[index];
+  document.getElementById(scene.id).classList.add('active');
+  popover.classList.add('visible');
+
+  // Dots
+  for (let i = 0; i < scenes.length; i++) {
+    const dot = document.getElementById('pdot-' + i);
+    dot.className = 'pdot';
+    if (i < index) dot.classList.add('done');
+    if (i === index) dot.classList.add('current');
+  }
+
+  // Content
+  document.getElementById('popover-title').textContent = scene.title;
+  document.getElementById('popover-story').textContent = scene.story;
+  document.getElementById('popover-speech').textContent = scene.speech;
+  document.getElementById('popover-hint').textContent = scene.hint;
+
+  dropTarget.innerHTML = scene.targetEmoji;
+  dropTarget.classList.remove('highlight');
+
+  resetStitch();
+}
+
+function resetStitch() {
+  stitch.classList.remove('dragging', 'celebrate', 'poof');
+  stitch.style.position = 'relative';
+  stitch.style.left = '';
+  stitch.style.top = '';
+  stitch.style.width = '';
+  stitch.style.height = '';
+  stitch.style.transform = '';
+  const ph = document.getElementById('stitch-placeholder');
+  if (ph) ph.remove();
+  dragArea.insertBefore(stitch, dragArea.firstChild);
+}
+
+function getEventPos(e) {
+  if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  return { x: e.clientX, y: e.clientY };
+}
+
+stitch.addEventListener('mousedown', startDrag);
+stitch.addEventListener('touchstart', startDrag, { passive: false });
+document.addEventListener('mousemove', onDrag);
+document.addEventListener('touchmove', onDrag, { passive: false });
+document.addEventListener('mouseup', endDrag);
+document.addEventListener('touchend', endDrag);
+
+function startDrag(e) {
+  if (currentScene < 0 || currentScene >= scenes.length) return;
+  e.preventDefault();
+
+  const rect = stitch.getBoundingClientRect();
+  const pos = getEventPos(e);
+  dragOffsetX = pos.x - rect.left;
+  dragOffsetY = pos.y - rect.top;
+
+  let ph = document.getElementById('stitch-placeholder');
+  if (!ph) {
+    ph = document.createElement('div');
+    ph.id = 'stitch-placeholder';
+    ph.style.width = '54px';
+    ph.style.height = '54px';
+    ph.style.flexShrink = '0';
+  }
+  dragArea.insertBefore(ph, dragArea.firstChild);
+
+  stitch.style.position = 'fixed';
+  stitch.style.left = rect.left + 'px';
+  stitch.style.top = rect.top + 'px';
+  stitch.style.width = '54px';
+  stitch.style.height = '54px';
+  stitch.classList.add('dragging');
+  document.body.appendChild(stitch);
+
+  isDragging = true;
+}
+
+function onDrag(e) {
+  if (!isDragging) return;
+  e.preventDefault();
+  const pos = getEventPos(e);
+  let x = Math.max(0, Math.min(window.innerWidth - 54, pos.x - dragOffsetX));
+  let y = Math.max(0, Math.min(window.innerHeight - 54, pos.y - dragOffsetY));
+  stitch.style.left = x + 'px';
+  stitch.style.top = y + 'px';
+
+  if (isOverlapping(stitch, dropTarget)) {
+    dropTarget.classList.add('highlight');
+  } else {
+    dropTarget.classList.remove('highlight');
+  }
+}
+
+function endDrag() {
+  if (!isDragging) return;
+  isDragging = false;
+  if (checkDrop()) return;
+  resetStitch();
+}
+
+function isOverlapping(el1, el2) {
+  const r1 = el1.getBoundingClientRect();
+  const r2 = el2.getBoundingClientRect();
+  const cx = r1.left + r1.width / 2;
+  const cy = r1.top + r1.height / 2;
+  const m = 25;
+  return cx >= r2.left - m && cx <= r2.right + m && cy >= r2.top - m && cy <= r2.bottom + m;
+}
+
+function checkDrop() {
+  if (currentScene < 0 || currentScene >= scenes.length) return false;
+  if (!isOverlapping(stitch, dropTarget)) return false;
+
+  const scene = scenes[currentScene];
+  dropTarget.classList.remove('highlight');
+  stitch.classList.add('celebrate');
+
+  if (scene.transition) {
+    // After wiggle (0.3s × 3 = 0.9s), poof Stitch away
+    setTimeout(() => {
+      stitch.classList.remove('celebrate');
+      stitch.classList.add('poof');
+    }, 900);
+    // After poof (0.35s), show transition
+    setTimeout(() => {
+      popover.classList.remove('visible');
+      transitionEmojiEl.innerHTML = scene.transitionEmoji;
+      transitionText.innerHTML = scene.transition.replace(/\n/g, '<br>');
+      transitionEl.classList.add('active');
+      setTimeout(() => {
+        currentScene++;
+        showScene(currentScene);
+        setTimeout(() => transitionEl.classList.remove('active'), 300);
+      }, 2700);
+    }, 1300);
+  } else {
+    setTimeout(() => {
+      currentScene = scenes.length;
+      showScene(currentScene);
+    }, 600);
+  }
+  return true;
+}
+
+function launchConfetti() {
+  const colors = ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#ff6eb4','#a855f7','#5ef','#fff'];
+  const container = document.getElementById('scene-finale');
+  for (let i = 0; i < 100; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti';
+    c.style.left = Math.random() * 100 + '%';
+    c.style.top = '-10px';
+    c.style.background = colors[Math.floor(Math.random() * colors.length)];
+    c.style.animationDuration = (2.5 + Math.random() * 3) + 's';
+    c.style.animationDelay = (Math.random() * 3) + 's';
+    const size = 4 + Math.random() * 8;
+    c.style.width = size + 'px';
+    c.style.height = size + 'px';
+    container.appendChild(c);
+  }
+}
+</script>
+</body>
+</html>
